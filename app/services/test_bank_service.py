@@ -1,6 +1,10 @@
 import pytest
 
-from app.services.bank_service import AtmBankService, BranchBankService
+from app.services.bank_service import (
+    AtmBankService,
+    BranchBankService,
+    OnlineBankService,
+)
 from app.validator.amount_validator import ValidationError, ValidationResult
 
 
@@ -72,3 +76,10 @@ def test_atmbankservice_withdraw_too_large():
     service = AtmBankService(test_double, strict_amount_validator)
     with pytest.raises(ValidationError):
         service.withdraw_money(1, 20000)
+
+# OnlineBankService tests
+def test_onlinebankservice_transfer_valid():
+    test_double = AccountServiceDouble()
+    service = OnlineBankService(test_double)
+    service.transfer_money(1, 2, 300)
+    assert test_double.transfers == [(1, 2, 300)]
