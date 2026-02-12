@@ -1,5 +1,7 @@
 from sqlmodel import Session, select
+
 from app.models.account import Account
+
 
 class AccountRepository:
     """

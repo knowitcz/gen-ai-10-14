@@ -1,12 +1,14 @@
 import logging
+
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from sqlmodel import SQLModel
-from app.db import engine
+
 from app.api.account_routes import router as account_router
 from app.api.bank_routes import router as bank_router
-from app.startup import create_default_accounts
+from app.db import engine
 from app.logging_config import setup_logging
+from app.startup import create_default_accounts
 
 # Setup logging first
 setup_logging()

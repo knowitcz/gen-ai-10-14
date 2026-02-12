@@ -1,11 +1,12 @@
 import logging
+
 from app.models.account import Account
 from app.repository.account_repository import AccountRepository
 
 logger = logging.getLogger(__name__)
 
 
-class AccountService(object):
+class AccountService:
     def __init__(self, account_repository: AccountRepository):
         self.account_repository = account_repository
 

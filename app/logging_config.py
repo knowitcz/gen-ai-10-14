@@ -3,6 +3,7 @@ import logging.handlers
 import sys
 from pathlib import Path
 
+
 def add_console_handler(logger: logging.Logger, formatter: logging.Formatter):
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)

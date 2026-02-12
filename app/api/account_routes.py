@@ -1,5 +1,7 @@
-from typing_extensions import Annotated
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
+
 from app.api.dependencies import get_account_service
 from app.models.account import Account
 from app.services.account_service import AccountService

@@ -1,6 +1,10 @@
 import pytest
-from app.validator.amount_validator import ValidationResult, ValidationError
 
+from app.validator.amount_validator import (
+    ValidationError,
+    ValidationResult,
+    validate_maximum_cash_amount,
+)
 
 # Creation tests
 
@@ -124,3 +128,15 @@ def test_join_single_unsuccessful():
     joined = ValidationResult.join(results)
     assert joined.is_success is False
     assert ["Single error"] in joined.error_messages
+
+
+def test_amount_validator_raises_on_too_large():
+    result = validate_maximum_cash_amount(20000)
+    assert result.is_success is False
+    assert "Amount cannot exceed 10000." in result.error_messages
+
+
+def test_amount_validator_ok():
+    result = validate_maximum_cash_amount(5000)
+    assert result.is_success is True
+    assert result.error_messages == []

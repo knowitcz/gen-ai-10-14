@@ -1,6 +1,8 @@
 import pytest
-from app.services.bank_service import BranchBankService, AtmBankService
+
+from app.services.bank_service import AtmBankService, BranchBankService
 from app.validator.amount_validator import ValidationError, ValidationResult
+
 
 class AccountServiceDouble:
     def __init__(self):

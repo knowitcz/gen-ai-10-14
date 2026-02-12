@@ -1,15 +1,16 @@
 import logging
-from sqlmodel import select, func
+import os
+
+from sqlalchemy.sql import text
+from sqlmodel import func, select
+
 from app.db import get_session
 from app.models.account import Account
-from sqlalchemy.sql import text
-
-import os
 
 logger = logging.getLogger(__name__)
 
 def read_sql_file(sql_file_path):
-    with open(sql_file_path, "r") as sql_file:
+    with open(sql_file_path) as sql_file:
         return sql_file.read()
 
 def create_default_accounts():

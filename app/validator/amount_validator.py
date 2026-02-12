@@ -1,10 +1,11 @@
 from typing import Protocol
 
+
 class ValidationError(ValueError):
     pass
 
 
-class ValidationResult(object):
+class ValidationResult:
     def __init__(self, *, success: bool, error_messages: list[str] = None):
         self._success = success
         self._error_messages = error_messages or []
