@@ -6,9 +6,10 @@ from app.repository.account_repository import AccountRepository
 
 
 class DummyAccount:
-    def __init__(self, id=1, balance=100):
+    def __init__(self, id=1, balance=100, client_id=1):
         self.id = id
         self.balance = balance
+        self.client_id = client_id
 
 def test_get_by_id_returns_account():
     session = Mock()
