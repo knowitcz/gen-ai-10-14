@@ -1,4 +1,5 @@
 import logging
+import time
 
 from app.models.account import Account
 from app.repository.account_repository import AccountRepository
@@ -28,6 +29,9 @@ class AccountService:
         """
         logger.info("Transfer initiated: %d from account %d to %d", amount, from_account_id, to_account_id)
         try:
+            # sleep based on amount to simulate processing time and increase chances of concurrency issues
+            time.sleep(amount * 0.01)
+
             with self.account_repository.session.begin():
                 self.account_repository.withdraw_money(from_account_id, amount)
                 self.account_repository.deposit_money(to_account_id, amount)

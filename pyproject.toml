@@ -5,6 +5,7 @@ description = "Happy Bank is an educational project that can be used to explain 
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+	"alembic",
 	"fastapi",
 	"fastmcp",
 	"pydantic",
