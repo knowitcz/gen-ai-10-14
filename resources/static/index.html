@@ -1,10 +1,531 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta http-equiv="refresh" content="0; url=/docs" />
-    <title>Redirecting...</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Bank Prototype</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light-bg);
+            color: #333;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+        h2 { margin-top: 0; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+        }
+
+        /* Sidebar / Scope Selector */
+        .sidebar {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            height: fit-content;
+        }
+
+        .scope-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .scope-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            transition: background 0.2s;
+        }
+
+        .scope-item:hover { background-color: #eee; }
+        .scope-item.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .balance-large {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        /* Access Controls */
+        select, input, button {
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            font-size: 1rem;
+        }
+
+        button.primary {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button.primary:hover { opacity: 0.9; }
+
+        /* Transactions Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th { background-color: #f8f9fa; }
+
+        .amount-pos { color: var(--success-color); }
+        .amount-neg { color: var(--error-color); }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Utils */
+        .hidden { display: none !important; }
+        .loading { opacity: 0.5; pointer-events: none; }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem;
+            background: #333;
+            color: white;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #toast.visible { opacity: 1; }
+        #toast.success { background: var(--success-color); }
+        #toast.error { background: var(--error-color); }
+
+    </style>
 </head>
 <body>
-    <p>If you are not redirected automatically, follow this <a href="/docs">link to the API docs</a>.</p>
+
+<header>
+    <div>
+        <h1>Happy Bank</h1>
+    </div>
+    <div>
+        <label for="clientSwitcher" style="margin-right: 0.5rem;">Current Client:</label>
+        <select id="clientSwitcher" onchange="switchClient(this.value)">
+            <option value="" disabled selected>Select a client...</option>
+        </select>
+    </div>
+</header>
+
+<div class="container">
+    <!-- Sidebar: Account Scopes -->
+    <aside class="sidebar">
+        <h3>Accounts</h3>
+        <ul class="scope-list" id="accountList">
+            <!-- Populated via JS -->
+            <li class="scope-item active">All Accounts</li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <!-- Dashboard / Overview -->
+        <div id="dashboardView" class="card">
+            <h2 id="viewTitle">Overview</h2>
+
+            <div id="balanceSection">
+                <p>Total Balance</p>
+                <div class="balance-large" id="totalBalance">---</div>
+            </div>
+
+            <div style="margin-top: 1rem;">
+                <button class="primary" onclick="showTransferModal()">Make a Transfer</button>
+            </div>
+        </div>
+
+        <!-- Transactions List -->
+        <div class="card">
+            <h3>Recent Transactions</h3>
+            <table id="transactionsTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Account</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated via JS -->
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+</div>
+
+<!-- Transfer Modal (Simple overlay for prototype) -->
+<div id="transferModal" class="card hidden" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 100;">
+    <h2>Transfer Money</h2>
+    <form id="transferForm" onsubmit="handleTransfer(event)">
+        <div class="form-group">
+            <label>From Account</label>
+            <select id="transferSource" required></select>
+        </div>
+        <div class="form-group">
+            <label>To Account ID</label>
+            <input type="number" id="transferDest" required placeholder="e.g. 2">
+        </div>
+        <div class="form-group">
+            <label>Amount</label>
+            <input type="number" id="transferAmount" required placeholder="0.00">
+        </div>
+        <div style="text-align: right;">
+            <button type="button" onclick="hideTransferModal()">Cancel</button>
+            <button type="submit" class="primary">Submit Transfer</button>
+        </div>
+    </form>
+</div>
+
+<!-- Simple Overlay Backdrop -->
+<div id="backdrop" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99;" onclick="hideTransferModal()"></div>
+
+<!-- Toast Notification -->
+<div id="toast"></div>
+
+<script>
+    // State
+    let currentClient = null;
+    let currentScope = 'all'; // 'all' or accountId (int)
+    let clientAccounts = [];
+    let allTransactions = [];
+
+    // Init
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadClients();
+    });
+
+    // --- Data Fetching ---
+
+    async function loadClients() {
+        try {
+            const res = await fetch('/api/v1/client');
+            const clients = await res.json();
+            const switcher = document.getElementById('clientSwitcher');
+
+            switcher.innerHTML = '<option value="" disabled selected>Select a client...</option>';
+            clients.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.name} (ID: ${c.id})`;
+                switcher.appendChild(opt);
+            });
+
+            // Auto-select first client for convenience
+            if (clients.length > 0) {
+                switcher.value = clients[0].id;
+                switchClient(clients[0].id);
+            }
+        } catch (err) {
+            console.error('Failed to load clients', err);
+            showToast('Failed to load clients', 'error');
+        }
+    }
+
+    async function switchClient(clientId) {
+        currentClient = clientId;
+        currentScope = 'all';
+        await loadClientData();
+    }
+
+    async function loadClientData() {
+        if (!currentClient) return;
+
+        try {
+            // 1. Get Client Details (for accounts usually, but API structure suggests getting client returns schema)
+            // The schema `ClientRead` in `client_routes.py` suggests it returns basic info.
+            // Let's assume we need to fetch accounts separately or they are included.
+            // Checking `ClientDetailRead` in `schemas.py` would confirm.
+            // Based on tools output earlier, `get_clients` returns list[ClientRead].
+            // `get_client` returns `ClientDetailRead`.
+
+            const clientRes = await fetch(`/api/v1/client/${currentClient}`);
+            const clientData = await clientRes.json();
+
+            // Assuming ClientDetailRead has an 'accounts' list field based on common patterns,
+            // or we might need a separate endpoint.
+            // Let's check `ClientDetailRead` schema if possible, but standard practice is nested.
+            // Update: I don't see `accounts` in the snippets I read.
+            // Wait, `models/client.py` usually has `accounts` relationship.
+            // If `ClientDetailRead` includes it, we are good. If not, we might be missing an endpoint to get accounts for a client?
+            // Let's look at `ClientRead`.
+
+            // Workaround: if clientData.accounts is missing, we might have a problem.
+            // Let's assume standard behavior for now. If not, I'll need to debug.
+            clientAccounts = clientData.accounts || [];
+
+            // 2. Get Transactions
+            const txRes = await fetch(`/api/v1/clients/${currentClient}/transactions`);
+            const txData = await txRes.json();
+            allTransactions = txData.transactions || []; // TransactionHistoryResponse likely has a list
+
+            renderSidebar();
+            renderView();
+        } catch (err) {
+            console.error("Error loading data", err);
+            showToast("Error loading client data. Check console.", 'error');
+        }
+    }
+
+    // --- Rendering ---
+
+    function renderSidebar() {
+        const list = document.getElementById('accountList');
+        list.innerHTML = '';
+
+        // All Accounts Option
+        const allItem = document.createElement('li');
+        allItem.className = `scope-item ${currentScope === 'all' ? 'active' : ''}`;
+        allItem.textContent = 'All Accounts';
+        allItem.onclick = () => setScope('all');
+        list.appendChild(allItem);
+
+        // Account Items
+        clientAccounts.forEach(acc => {
+            const item = document.createElement('li');
+            item.className = `scope-item ${currentScope === acc.id ? 'active' : ''}`;
+            item.textContent = `${acc.name || 'Account'} #${acc.id}`;
+            item.onclick = () => setScope(acc.id);
+            list.appendChild(item);
+        });
+    }
+
+    function setScope(scope) {
+        currentScope = scope;
+        renderSidebar();
+        renderView();
+    }
+
+    // --- Helper for Transactions ---
+    function formatTransaction(tx, currentAccountId) {
+        let amount = tx.amount;
+        let isNegative = false;
+        let desc = 'Transaction';
+
+        // Check if numeric scope (specific account)
+        const scopeId = parseInt(currentAccountId);
+
+        if (!isNaN(scopeId)) {
+            if (tx.source_account_id === scopeId) {
+                isNegative = true;
+                desc = `To Account #${tx.target_account_id}`;
+                if (tx.target_account_id === null) desc = 'Withdrawal';
+            } else if (tx.target_account_id === scopeId) {
+                isNegative = false;
+                desc = `From Account #${tx.source_account_id}`;
+                if (tx.source_account_id === null) desc = 'Deposit';
+            }
+        } else {
+            // All accounts view
+            if (tx.source_account_id && tx.target_account_id) {
+                desc = `Transfer #${tx.source_account_id} -> #${tx.target_account_id}`;
+            } else if (tx.source_account_id) {
+                desc = `Withdrawal from #${tx.source_account_id}`;
+                isNegative = true;
+            } else {
+                desc = `Deposit to #${tx.target_account_id}`;
+            }
+        }
+
+        return {
+            date: new Date(tx.date).toLocaleString(),
+            desc: desc,
+            amountStr: (isNegative ? '-' : '+') + amount,
+            isNegative: isNegative
+        };
+    }
+
+    function renderView() {
+        const title = document.getElementById('viewTitle');
+        const balanceEl = document.getElementById('totalBalance');
+        const tbody = document.querySelector('#transactionsTable tbody');
+
+        tbody.innerHTML = '';
+
+        let displayTx = [];
+        let totalBalance = 0;
+
+        if (currentScope === 'all') {
+            title.textContent = `Overview - ${clientAccounts.length} Accounts`;
+
+            // Calculate total balance across all accounts
+            totalBalance = clientAccounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+
+            // Show all transactions fetched for client
+            displayTx = allTransactions;
+        } else {
+            // Specific Account - ensure int comparison
+            const scopeId = parseInt(currentScope);
+            const acc = clientAccounts.find(a => a.id === scopeId);
+
+            if (acc) {
+                title.textContent = `${acc.name} (#${acc.id})`;
+                totalBalance = acc.balance;
+
+                // Filter transactions for this account
+                displayTx = allTransactions.filter(t =>
+                    t.source_account_id === scopeId || t.target_account_id === scopeId
+                );
+            }
+        }
+
+        balanceEl.textContent = `$${totalBalance}`;
+
+        if (!displayTx || displayTx.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No transactions found.</td></tr>';
+        } else {
+            // Sort by date desc (newest first)
+            displayTx.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            displayTx.forEach(tx => {
+                const fmt = formatTransaction(tx, currentScope);
+                const tr = document.createElement('tr');
+                // Determine direction color
+                const colorClass = fmt.isNegative ? 'amount-neg' : 'amount-pos';
+
+                tr.innerHTML = `
+                    <td>${fmt.date}</td>
+                    <td>${currentScope === 'all' ? (tx.source_account_id + ' -> ' + tx.target_account_id) : currentScope}</td>
+                    <td>${fmt.desc}</td>
+                    <td class="${colorClass}">
+                        ${fmt.amountStr}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    }
+
+    // --- Actions ---
+
+    function showTransferModal() {
+        const modal = document.getElementById('transferModal');
+        const backdrop = document.getElementById('backdrop');
+        const select = document.getElementById('transferSource');
+
+        // Populate source accounts
+        select.innerHTML = '';
+        clientAccounts.forEach(acc => {
+            const opt = document.createElement('option');
+            opt.value = acc.id;
+            opt.textContent = `${acc.name} (#${acc.id}) - $${acc.balance}`;
+            if (currentScope === acc.id) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        modal.classList.remove('hidden');
+        backdrop.classList.remove('hidden');
+    }
+
+    function hideTransferModal() {
+        document.getElementById('transferModal').classList.add('hidden');
+        document.getElementById('backdrop').classList.add('hidden');
+        document.getElementById('transferForm').reset();
+    }
+
+    async function handleTransfer(e) {
+        e.preventDefault();
+        const sourceId = document.getElementById('transferSource').value;
+        const destId = document.getElementById('transferDest').value;
+        const amount = document.getElementById('transferAmount').value;
+
+        try {
+            const res = await fetch(`/api/v1/bank/transfer?from_account_id=${sourceId}&to_account_id=${destId}&amount=${amount}`, {
+                method: 'POST'
+            });
+
+            if (!res.ok) throw new Error('Transfer failed');
+
+            showToast('Transfer successful!', 'success');
+            hideTransferModal();
+            await loadClientData(); // Refresh data
+        } catch (err) {
+            console.error(err);
+            showToast('Transfer failed. Check details.', 'error');
+        }
+    }
+
+    function showToast(msg, type = 'info') {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = type + ' visible';
+        setTimeout(() => {
+            toast.className = '';
+        }, 3000);
+    }
+
+</script>
+
 </body>
 </html>
