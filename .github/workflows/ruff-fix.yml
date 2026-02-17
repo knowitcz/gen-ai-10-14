@@ -1,0 +1,60 @@
+name: Ruff Auto-fix (feature branches)
+
+on:
+  push:
+    branches:
+      - feature/**
+
+jobs:
+  ruff_fix:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        python-version: ["3.14"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          uv venv .venv
+          uv pip install -e .
+
+      - name: Run ruff (auto-fix)
+        run: |
+          uv run ruff check app/ --fix
+
+      - name: Commit ruff fixes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git config user.name "$(git show -s --format='%an')"
+            git config user.email "$(git show -s --format='%ae')"
+            git add -A
+            git commit -m "Ruff: I did not check my code and ruff did that for me"
+            git push
+          else
+            echo "No ruff fixes to commit."
+          fi

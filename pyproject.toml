@@ -9,11 +9,18 @@ dependencies = [
 	"fastmcp",
 	"pydantic",
 	"pytest",
+	"ruff",
 	"repository_sqlalchemy",
 	"sqlalchemy",
 	"sqlmodel",
 	"uvicorn"
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+lint.select = ["E", "F", "W", "I", "B", "UP"]
+lint.ignore = ["E501"]
 
 [tool.setuptools]
 package-dir = {"" = "app"}
