@@ -1,6 +1,10 @@
+import logging
+
 from sqlmodel import Session, select
 
 from app.models.account import Account
+
+logger = logging.getLogger(__name__)
 
 
 class AccountRepository:
@@ -58,3 +62,16 @@ class AccountRepository:
             raise ValueError("Account not found")
         account.balance += amount
         self.session.add(account)
+
+    def get_by_client_id(self, client_id: int) -> list[Account]:
+        """
+        Get all accounts belonging to a client.
+
+        :param client_id: The ID of the client.
+        :return: List of Account objects belonging to the client.
+        """
+        logger.debug("Fetching accounts for client %s", client_id)
+        statement = select(Account).where(Account.client_id == client_id)
+        accounts = self.session.exec(statement).all()
+        logger.debug("Found %d accounts for client %s", len(accounts), client_id)
+        return list(accounts)

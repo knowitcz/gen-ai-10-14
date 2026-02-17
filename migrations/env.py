@@ -5,12 +5,16 @@ to run migrations against the database. It connects Alembic to SQLModel.
 """
 
 import os
-import sys
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
+
+# Ensure all models are imported so their tables are registered with SQLModel.metadata
+from app.models.account import Account  # noqa: F401
+from app.models.client import Client  # noqa: F401
+from app.models.transaction import Transaction  # noqa: F401
 
 # This is the Alembic Config object, which provides access to the values
 # within the .ini file in use.

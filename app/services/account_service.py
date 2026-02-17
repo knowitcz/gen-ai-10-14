@@ -2,14 +2,21 @@ import logging
 import time
 
 from app.models.account import Account
+from app.models.transaction import Transaction
 from app.repository.account_repository import AccountRepository
+from app.repository.transaction_repository import TransactionRepository
 
 logger = logging.getLogger(__name__)
 
 
 class AccountService:
-    def __init__(self, account_repository: AccountRepository):
+    def __init__(
+        self,
+        account_repository: AccountRepository,
+        transaction_repository: TransactionRepository,
+    ):
         self.account_repository = account_repository
+        self.transaction_repository = transaction_repository
 
     def get_account_by_id(self, account_id: int) -> Account | None:
         """
@@ -35,6 +42,13 @@ class AccountService:
             with self.account_repository.session.begin():
                 self.account_repository.withdraw_money(from_account_id, amount)
                 self.account_repository.deposit_money(to_account_id, amount)
+                self.transaction_repository.create(
+                    Transaction(
+                        source_account_id=from_account_id,
+                        target_account_id=to_account_id,
+                        amount=amount,
+                    )
+                )
             logger.info("Transfer completed successfully: %d from %d to %d", amount, from_account_id, to_account_id)
         except Exception as e:
             logger.error("Transfer failed: %s", e, exc_info=True)
@@ -48,6 +62,13 @@ class AccountService:
         try:
             with self.account_repository.session.begin():
                 self.account_repository.withdraw_money(account_id, amount)
+                self.transaction_repository.create(
+                    Transaction(
+                        source_account_id=account_id,
+                        target_account_id=None,
+                        amount=amount,
+                    )
+                )
             logger.info("Withdrawal completed: %d from account %d", amount, account_id)
         except Exception as e:
             logger.error("Withdrawal failed: %s", e, exc_info=True)
@@ -61,6 +82,13 @@ class AccountService:
         try:
             with self.account_repository.session.begin():
                 self.account_repository.deposit_money(account_id, amount)
+                self.transaction_repository.create(
+                    Transaction(
+                        source_account_id=None,
+                        target_account_id=account_id,
+                        amount=amount,
+                    )
+                )
             logger.info("Deposit completed: %d to account %d", amount, account_id)
         except Exception as e:
             logger.error("Deposit failed: %s", e, exc_info=True)
