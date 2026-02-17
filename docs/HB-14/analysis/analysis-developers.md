@@ -8,14 +8,20 @@ The goal is to implement a history mechanism for financial operations (deposits,
 ### New Model: `Transaction`
 We need a new table/model called `Transaction`.
 
-| Field Name   | Type               | Description                                  |
-| :---         | :---               | :---                                         |
-| `id`         | `Integer` (PK)     | Unique identifier                            |
-| `account_id` | `Integer` (FK)     | Foreign Key to `Account.id`                  |
-| `type`       | `Enum/String`      | 'DEPOSIT', 'WITHDRAWAL', 'TRANSFER' (future) |
-| `amount`     | `Float/Integer`    | The amount involved                          |
-| `date`       | `DateTime`         | Timestamp of the operation                   |
-| `created_at` | `DateTime`         | Audit timestamp                              |
+| Field Name          | Type               | Description                                                      |
+| :---                | :---               | :---                                                             |
+| `id`                | `Integer` (PK)     | Unique identifier                                                |
+| `source_account_id` | `Integer` (FK)     | Foreign Key to `Account.id`. NULL for deposits (money comes in). |
+| `target_account_id` | `Integer` (FK)     | Foreign Key to `Account.id`. NULL for withdrawals (money goes out). |
+| `amount`            | `Float/Integer`    | The amount involved                                              |
+| `date`              | `DateTime`         | Timestamp of the operation                                       |
+| `created_at`        | `DateTime`         | Audit timestamp                                                  |
+
+**Derived transaction type** (not stored, inferred from account ID presence):
+- Both `source_account_id` and `target_account_id` set → **TRANSFER**
+- Only `source_account_id` set → **WITHDRAWAL**
+- Only `target_account_id` set → **DEPOSIT**
+- Neither set → **Invalid** (must be prevented by a DB constraint)
 
 ### Existing Models
 - **Account**: No structural changes, but logic must be updated to create a `Transaction` whenever balance changes (except perhaps initial creation).
@@ -39,9 +45,10 @@ interface TransactionResponse {
     };
     transactions: Array<{
         id: number;
-        account_id: number;
+        source_account_id: number | null;
+        target_account_id: number | null;
         amount: number;
-        type: string;
+        type: string; // Derived: DEPOSIT | WITHDRAWAL | TRANSFER
         date: string;
     }>;
 }
@@ -56,9 +63,10 @@ interface TransactionResponse {
 2.  **Transaction Retrieval**:
     - Create a new method `get_client_transactions(client_id, filters...)` in a new `TransactionService`.
     - Retrieve all accounts for the given `client_id` first.
-    - Query `Transaction` table filtering by the list of account IDs.
+    - Query `Transaction` table filtering by `source_account_id` or `target_account_id` matching the client's account IDs.
     - Apply date ranges if provided.
-    - Calculate sums for incoming vs outgoing.
+    - Compute the summary (total incoming / total outgoing) on the database side using an aggregate query (e.g., `SUM` with `CASE`/`FILTER`), issued as a separate query.
+    - Both the transaction list query and the summary aggregation query must run inside the same DB transaction to guarantee they operate on a consistent dataset.
 
 ## UML Diagrams
 
@@ -80,14 +88,16 @@ classDiagram
     }
     class Transaction {
         +int id
-        +int account_id
-        +string type
+        +int source_account_id
+        +int target_account_id
         +float amount
         +DateTime date
+        +type() string
     }
 
     Client "1" *-- "0..*" Account : owns
-    Account "1" *-- "0..*" Transaction : logs
+    Account "1" *-- "0..*" Transaction : logs (source)
+    Account "1" *-- "0..*" Transaction : logs (target)
 ```
 
 ### Sequence Diagram (Data Flow)
@@ -110,12 +120,20 @@ sequenceDiagram
 
     Note right of S: Extract List<account_id>
 
+    Note right of S: Begin DB transaction
+
     S->>R: find_transactions(account_ids, dates)
-    R->>DB: SELECT * FROM transactions WHERE account_id IN (...) AND date BETWEEN ...
+    R->>DB: SELECT * FROM transactions WHERE (source_account_id IN (...) OR target_account_id IN (...)) AND date BETWEEN ...
     DB-->>R: [Tx1, Tx2, Tx3]
     R-->>S: [Tx1, Tx2, Tx3]
 
-    S->>S: calculate_summary(transactions)
+    S->>R: get_summary(account_ids, dates)
+    R->>DB: SELECT SUM(CASE ...) AS total_incoming, SUM(CASE ...) AS total_outgoing FROM transactions WHERE ...
+    DB-->>R: {total_incoming, total_outgoing}
+    R-->>S: Summary
+
+    Note right of S: End DB transaction
+
     S-->>API: Response(summary, list)
 ```
 
@@ -136,7 +154,7 @@ sequenceDiagram
     S->>R: update_account(account)
 
     Note right of S: New step: Log transaction
-    S->>R: create_transaction(account_id, amount, 'DEPOSIT')
+    S->>R: create_transaction(source_account_id=None, target_account_id=account_id, amount)
 
     R->>DB: UPDATE account... INSERT INTO transaction...
     DB-->>R: Success
