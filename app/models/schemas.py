@@ -17,13 +17,3 @@ class ClientRead(SQLModel):
 
 class ClientDetailRead(ClientRead):
     accounts: list[AccountRead] = []
-
-
-class ClientCreate(SQLModel):
-    name: str
-    national_number: str
-
-
-class ClientUpdate(SQLModel):
-    name: str | None = None
-    national_number: str | None = None
